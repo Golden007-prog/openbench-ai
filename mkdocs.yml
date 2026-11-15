@@ -63,6 +63,7 @@ nav:
       - Benchmark tools: benchmark_tools.md
       - Quality audits: quality_audits.md
       - Core metrics: metrics.md
+      - Write a custom metric: tutorial_custom_metric.md
       - Advanced metrics: advanced_metrics.md
       - Configuration profiles: configuration.md
   - Results and reproducibility:
