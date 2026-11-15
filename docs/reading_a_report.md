@@ -1,6 +1,6 @@
 # Reading a model comparison report
 
-This guide walks through a real OpenBench AI v0.4.0 comparison report generated with the offline mock provider. It explains how to read the result, understand the statistical test, and interpret warnings without overstating what the evidence shows.
+This guide walks through an OpenBench AI v0.4.0 report from a [paired comparison](glossary.md#paired-comparison) using the offline mock provider. It explains how to read the result, understand the statistical test, and interpret warnings without overstating what the evidence shows.
 
 ## 1. Generate the example report
 
@@ -19,7 +19,7 @@ The mock provider is deterministic for this example, but it does not represent r
 The example report compares:
 
 - Baseline: `example-model-b`, one run.
-- Challenger: `example-model-a`, a repeat group of three runs.
+- Challenger: `example-model-a`, a [repeat group](glossary.md#repeat-group) of three runs.
 
 The report defines:
 
@@ -27,7 +27,7 @@ The report defines:
 
 A positive difference favours the challenger; a negative difference favours the baseline. This direction is important when reading every result.
 
-The comparison uses 20 aligned dataset items. For the repeat group, each item's score is averaged across its valid repetitions. The sample size is 20 items, not 60 observations.
+The comparison uses 20 aligned dataset items. For the repeat group, each item's score is averaged across its valid repetitions. The [unit of analysis](glossary.md#estimand-unit-of-analysis) is the dataset item, so the sample size is 20.
 
 ## 3. Read the difference and confidence interval
 
@@ -44,7 +44,7 @@ Both metrics have a mean difference of -0.25.
 
 Because the difference is challenger minus baseline, this means the challenger scored 0.25 points lower on average.
 
-The 95% confidence interval is [-0.3667, -0.1333].
+The 95% [confidence interval](glossary.md#confidence-interval) is [-0.3667, -0.1333].
 
 The interval is entirely below zero, which indicates that the observed difference favours the baseline.
 
@@ -58,7 +58,7 @@ Important:
 
 ## 4. Understand the statistical test and adjusted p-value
 
-The report uses a paired sign-flip permutation test for both metrics.
+The report uses a paired [sign-flip permutation test](glossary.md#sign-flip-permutation-test) for both metrics.
 
 Why?
 
@@ -78,7 +78,7 @@ Permutation distribution: exact_enumeration
 
 The raw p-value measures evidence against the test's null hypothesis.
 
-The adjusted p-value accounts for the family of two metric comparisons using Holm correction.
+The adjusted p-value accounts for the family of two metric comparisons using [Holm correction](glossary.md#holm-correction).
 
 Since 0.001953 is below the significance threshold of 0.05, both reported differences are statistically significant.
 
@@ -144,7 +144,7 @@ Per-item means therefore use different numbers of repetitions across the arms.
 
 The comparison has 20 aligned items, fewer than the warning threshold of 30.
 
-This indicates low statistical power and potentially wide intervals. A statistically significant result should still be interpreted in light of the limited sample.
+This indicates low statistical [power](glossary.md#power-and-minimum-detectable-difference) and potentially wide intervals. A statistically significant result should still be interpreted in light of the limited sample.
 
 ### Compatible for inference
 
@@ -171,7 +171,7 @@ These are not failed tests.
 
 They mean:
 
-- No equivalence margin was supplied before the analysis, so equivalence was not evaluated.
+- No [equivalence margin](glossary.md#equivalence-margin) was supplied before the analysis, so equivalence was not evaluated.
 - No minimum practical difference was specified, so practical importance was not classified.
 
 Statistical significance and practical importance are different questions.
@@ -186,7 +186,7 @@ The report's limitations section highlights several important boundaries:
 - A non-significant difference does not establish equivalence.
 - Confidence intervals are not adjusted for multiple comparisons.
 - Continuous-metric equivalence testing is disabled in v0.4.0.
-- Category and difficulty breakdowns are descriptive unless stratum tests are requested.
+- Category and difficulty breakdowns are [descriptive only](glossary.md#descriptive-only) unless stratum tests are requested.
 
 Always read this section before using a comparison to make a model-selection decision.
 

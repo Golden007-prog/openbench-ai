@@ -2,7 +2,7 @@
 
 For a step-by-step walkthrough, see [Reading a comparison report](reading_a_report.md).
 
-`openbench analyze` compares stored results. It never constructs or calls a model provider.
+`openbench analyze` runs a [paired comparison](glossary.md#paired-comparison) on stored results. It never constructs or calls a model provider.
 
 ```bash
 # Stored runs or repeat groups (experiments directory)
@@ -25,7 +25,7 @@ result = PairedComparisonEngine().compare(arms, ["exact_match", "f1"], Compariso
 ## Alignment and missing data
 
 - Items are aligned on **stable record IDs** after sorting. File order and response order never change a result. The same holds for arm order: without `--baseline`, pairs are formed in sorted arm-ID order.
-- An arm's value for an item is the mean of its valid repetitions. A single run has one repetition.
+- An arm's value for an item is the mean of its valid repetitions. A single run has one repetition; a [repeat group](glossary.md#repeat-group) has multiple runs.
 - **Missing-data policy** (`--missing-policy`, recorded in the output):
   - `complete_case` (default): only items with a valid value in both arms are used. Missing outputs are **never counted as wrong answers**.
   - `missing_as_failure`: missing or invalid outputs score 0.0, as headline scores do.
@@ -33,13 +33,13 @@ result = PairedComparisonEngine().compare(arms, ["exact_match", "f1"], Compariso
 
 ## Methods
 
-| Metric kind | Interval | Test of no difference | Effect sizes |
+| [Metric kind](glossary.md#score-kind-score_kind) | [Confidence interval](glossary.md#confidence-interval) | Test of no difference | Effect sizes |
 | --- | --- | --- | --- |
-| `binary`, one repetition per arm | Paired percentile bootstrap | Exact McNemar | Discordant counts, risk difference, wins/losses/ties |
-| Continuous, or binary with repetitions | Paired percentile bootstrap | Paired sign-flip permutation test (exact enumeration up to 20 non-zero differences, otherwise Monte Carlo) | Mean difference, d_z (descriptive), probability of superiority |
+| `binary`, one repetition per arm | Paired percentile bootstrap | Exact [McNemar test](glossary.md#mcnemar-test) | [Discordant counts](glossary.md#discordance), risk difference, wins/losses/ties |
+| Continuous, or binary with repetitions | Paired percentile bootstrap | Paired [sign-flip permutation test](glossary.md#sign-flip-permutation-test) (exact enumeration up to 20 non-zero differences, otherwise Monte Carlo) | Mean difference, d_z (descriptive), probability of superiority |
 | `unknown` (custom metrics) | Paired percentile bootstrap | None (the reason is recorded) | Mean difference |
 
-Every test of no difference across all pairs and metrics forms one family. Raw and adjusted p-values are reported; `--correction` selects Holm (default), BH (controls the false discovery rate, flagged) or none (flagged). Category and difficulty breakdowns are descriptive unless `--stratum-tests` adds them to the family.
+Every test of no difference across all pairs and metrics forms one family. Raw and adjusted p-values are reported; `--correction` selects [Holm correction](glossary.md#holm-correction) (default), [Benjamini–Hochberg](glossary.md#familywise-error-rate-and-benjaminihochberg-fdr) (BH, controls the false discovery rate, flagged) or none (flagged). Category and difficulty breakdowns are [descriptive only](glossary.md#descriptive-only) unless `--stratum-tests` adds them to the family.
 
 ### What `descriptive_only` means on breakdowns
 
@@ -51,7 +51,7 @@ The **failure-rate comparison** tests paired failure indicators (missing or inva
 
 **Practical importance** (`--min-practical-difference`) classifies the CI against a threshold. It is descriptive and never an equivalence claim.
 
-**Equivalence** (`--equivalence-margin`, which must be pre-specified) runs a TOST:
+**Equivalence** requires a pre-specified [equivalence margin](glossary.md#equivalence-margin) (`--equivalence-margin`) and runs a [TOST](glossary.md#tost-two-one-sided-tests):
 
 - **Binary metrics with one repetition** use the exact unconditional score test, and are decided by the Holm-adjusted p_TOST within a separate equivalence family.
 - **Continuous metrics** are disabled for equivalence decisions in v0.4.0. Values are reported as descriptive only, with the reason `method_not_validated`.
@@ -77,7 +77,7 @@ See [statistical_methodology.md](statistical_methodology.md), section 22.
 
 ## Ranking more than two models
 
-`openbench rank` ranks several runs at once, with rank intervals. See
+`openbench rank` ranks several runs at once, with [rank intervals](glossary.md#rank-interval). See
 [ranking_and_planning.md](ranking_and_planning.md).
 
 ## Compatibility checks

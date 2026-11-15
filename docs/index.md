@@ -14,6 +14,8 @@ pip install openbench-ai
 
 ## Start here
 
+New to the statistics? Start with the [glossary](glossary.md).
+
 | If you want to… | Read |
 | --- | --- |
 | Install it and run a first comparison | [Installation](installation.md), [Usage](usage.md) |
