@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import re
 import sys
@@ -38,7 +39,7 @@ from openbench.exceptions import OpenBenchError
 from openbench.execution import ExecutionConfig, RetryPolicy
 from openbench.experiments import ExperimentManager
 from openbench.history import ResultHistoryStore
-from openbench.reporting import ReportGenerator
+from openbench.reporting import ReportGenerator, escape_markdown_cell
 from openbench.security import sanitize_error_message
 
 
@@ -432,7 +433,7 @@ def build_parser() -> argparse.ArgumentParser:
     runs_list_p.add_argument("--experiments-dir", type=str, default=None)
     runs_list_p.add_argument("--status", type=str, default=None)
     runs_list_p.add_argument("--provider", type=str, default=None)
-    runs_list_p.add_argument("--format", choices=["text", "json"], default="text")
+    runs_list_p.add_argument("--format", choices=["text", "json", "csv", "markdown"], default="text")
     runs_list_p.add_argument(
         "--group", type=str, default=None, help="v0.4.0: list only the runs of this repeat group."
     )
@@ -1407,36 +1408,62 @@ def _truncate(text: str, width: int) -> str:
     return text if len(text) <= width else text[: max(width - 1, 1)] + "…"
 
 
+_RUNS_COMPACT_HEADER = ("RUN ID", "STATUS", "MODEL", "ITEMS", "SCORE", "GROUP")
+_RUNS_WIDE_HEADER = ("RUN ID", "STATUS", "ORIGIN", "MODEL", "DATASET", "ITEMS", "SCORES", "GROUP")
+
+
+def _run_list_row(run: Any, *, wide: bool = False) -> tuple[str, ...]:
+    model = f"{run.model_provider}:{run.model_name}"
+    items = f"{run.completed_items}/{run.total_items}"
+    group = f"{run.repeat_group_id}#{run.repetition_index}" if run.repeat_group_id else "-"
+    if wide:
+        if run.is_mock_provider:
+            model += " [MOCK]"
+        return (
+            run.run_id, str(run.status), str(run.execution_origin), model,
+            str(run.dataset_identifier), items, str(run.aggregate_scores), group,
+        )
+
+    if run.is_mock_provider:
+        model += " [mock]"
+    score = "-"
+    if run.aggregate_scores:
+        first = min(run.aggregate_scores)
+        value = run.aggregate_scores[first]
+        score = f"{first}={value:.3f}" if isinstance(value, (int, float)) else f"{first}={value}"
+    return run.run_id, str(run.status), model, items, score, group
+
+
 def _compact_runs_table(runs: list[Any]) -> list[str]:
     """Aligned table for `openbench runs list` that fits in about 120 columns (v0.5.0)."""
-    header = ("RUN ID", "STATUS", "MODEL", "ITEMS", "SCORE", "GROUP")
-    rows: list[tuple[str, ...]] = []
-    for r in runs:
-        model = f"{r.model_provider}:{r.model_name}" + (" [mock]" if r.is_mock_provider else "")
-        scores = r.aggregate_scores or {}
-        if scores:
-            first = sorted(scores)[0]
-            value = scores[first]
-            score = f"{first}={value:.3f}" if isinstance(value, (int, float)) else f"{first}={value}"
-        else:
-            score = "-"
-        group = f"{r.repeat_group_id}#{r.repetition_index}" if r.repeat_group_id else "-"
-        rows.append(
-            (
-                r.run_id,
-                str(r.status),
-                _truncate(model, 34),
-                f"{r.completed_items}/{r.total_items}",
-                _truncate(score, 24),
-                group,
-            )
-        )
+    header = _RUNS_COMPACT_HEADER
+    rows = [
+        (run_id, status, _truncate(model, 34), items, _truncate(score, 24), group)
+        for run_id, status, model, items, score, group in map(_run_list_row, runs)
+    ]
     widths = [max(len(h), *(len(row[i]) for row in rows)) for i, h in enumerate(header)]
     fmt = "  ".join(f"{{:<{w}}}" for w in widths)
     lines = ["  " + fmt.format(*header).rstrip()]
     lines.extend("  " + fmt.format(*row).rstrip() for row in rows)
     lines.append("  (SCORE shows the first metric alphabetically; use --wide or --format json for all scores.)")
     return lines
+
+
+def _print_runs_export(runs: list[Any], *, output_format: str, wide: bool) -> None:
+    header = _RUNS_WIDE_HEADER if wide else _RUNS_COMPACT_HEADER
+    rows = (_run_list_row(run, wide=wide) for run in runs)
+    if output_format == "csv":
+        from openbench.security import csv_safe
+
+        writer = csv.writer(sys.stdout, lineterminator="\n", quoting=csv.QUOTE_ALL)
+        writer.writerow(header)
+        writer.writerows(tuple("-" if cell == "-" else csv_safe(cell) for cell in row) for row in rows)
+        return
+
+    print("| " + " | ".join(header) + " |")
+    print("| " + " | ".join("---" for _ in header) + " |")
+    for row in rows:
+        print("| " + " | ".join(escape_markdown_cell(cell) for cell in row) + " |")
 
 
 def _handle_runs(args: argparse.Namespace) -> int:
@@ -1460,20 +1487,21 @@ def _handle_runs(args: argparse.Namespace) -> int:
         if args.format == "json":
             print(json.dumps([r.to_dict() for r in runs], indent=2))
             return 0
+        wide = getattr(args, "wide", False)
+        if args.format in {"csv", "markdown"}:
+            _print_runs_export(runs, output_format=args.format, wide=wide)
+            return 0
         if not runs:
             print("No experiment runs found.")
             return 0
         print(f"Experiment Runs ({len(runs)}):")
-        if getattr(args, "wide", False):
+        if wide:
             for r in runs:
-                mock_tag = " [MOCK]" if r.is_mock_provider else ""
-                group_tag = (
-                    f" | group={r.repeat_group_id}#{r.repetition_index}" if r.repeat_group_id else ""
-                )
+                run_id, status, origin, model, dataset, items, scores, group = _run_list_row(r, wide=True)
+                group_tag = f" | group={group}" if r.repeat_group_id else ""
                 print(
-                    f"  - {r.run_id} | {r.status} | origin={r.execution_origin} | "
-                    f"{r.model_provider}:{r.model_name}{mock_tag} | dataset={r.dataset_identifier} "
-                    f"({r.completed_items}/{r.total_items}) | scores={r.aggregate_scores}{group_tag}"
+                    f"  - {run_id} | {status} | origin={origin} | "
+                    f"{model} | dataset={dataset} ({items}) | scores={scores}{group_tag}"
                 )
             return 0
         for line in _compact_runs_table(runs):

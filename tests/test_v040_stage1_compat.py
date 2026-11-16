@@ -53,7 +53,13 @@ def test_cli_surface_preserved() -> None:
             continue
         by_dest = {a["dest"]: a for a in current[path]}
         for action in actions:
-            assert by_dest.get(action["dest"]) == action, (path, action["dest"])
+            actual = by_dest.get(action["dest"])
+            if path == "runs list" and action["dest"] == "format":
+                # New export formats may extend the historical choices.
+                assert actual is not None
+                assert set(action["choices"]) <= set(actual["choices"])
+                actual = {**actual, "choices": action["choices"]}
+            assert actual == action, (path, action["dest"])
     old_leaves = [p for p in SURFACE["cli"] if p != "<root>" and not any(
         o.startswith(p + " ") for o in SURFACE["cli"]
     )]

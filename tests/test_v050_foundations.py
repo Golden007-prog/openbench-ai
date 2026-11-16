@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import io
 import json
 import subprocess
@@ -510,6 +511,48 @@ def test_runs_list_compact_and_wide(tmp_path, capsys):
     assert main(["runs", "list", "--experiments-dir", str(exp), "--wide"]) == 0
     wide = capsys.readouterr().out
     assert "origin=provider_executed" in wide and "scores={" in wide
+
+
+def test_runs_list_exports_mock_run(tmp_path, capsys):
+    model = 'long model name for export, with "quotes" and a | pipe'
+    common = ["--experiments-dir", str(tmp_path / "exp")]
+    assert main([
+        "run", "--dataset", str(SAMPLE), "--provider", "mock", "--model", model,
+        "--no-cache", *common,
+    ]) == 0
+    capsys.readouterr()
+    args = ["runs", "list", *common, "--provider", "mock"]
+
+    assert main([*args, "--format", "json"]) == 0
+    record, = json.loads(capsys.readouterr().out)
+    assert record["model_name"] == model
+
+    assert main([*args, "--format", "csv"]) == 0
+    header, row = csv.reader(io.StringIO(capsys.readouterr().out))
+    assert header == ["RUN ID", "STATUS", "MODEL", "ITEMS", "SCORE", "GROUP"]
+    assert row[:4] == [record["run_id"], "completed", f"mock:{model} [mock]",
+                       f'{record["completed_items"]}/{record["total_items"]}']
+    assert row[5] == "-"
+
+    assert main([*args, "--format", "markdown", "--wide"]) == 0
+    header, separator, row = capsys.readouterr().out.splitlines()
+    assert header == "| RUN ID | STATUS | ORIGIN | MODEL | DATASET | ITEMS | SCORES | GROUP |"
+    assert separator == "| --- | --- | --- | --- | --- | --- | --- | --- |"
+    assert record["run_id"] in row
+    assert "provider_executed" in row
+    assert f"mock:{model} [MOCK]" in row.replace(r"\|", "|")
+    assert r"and a \| pipe" in row
+    assert str(record["aggregate_scores"]) in row
+
+
+@pytest.mark.parametrize("fmt, expected", [
+    ("csv", '"RUN ID","STATUS","MODEL","ITEMS","SCORE","GROUP"\n'),
+    ("markdown", "| RUN ID | STATUS | MODEL | ITEMS | SCORE | GROUP |\n"
+                 "| --- | --- | --- | --- | --- | --- |\n"),
+])
+def test_runs_list_empty_exports_keep_headers(tmp_path, capsys, fmt, expected):
+    assert main(["runs", "list", "--experiments-dir", str(tmp_path), "--format", fmt]) == 0
+    assert capsys.readouterr().out == expected
 
 
 def test_compact_table_handles_no_scores():

@@ -154,7 +154,7 @@ List stored experiment runs.
 | `--experiments-dir` |  |  |  |  |
 | `--status` |  |  |  |  |
 | `--provider` |  |  |  |  |
-| `--format` |  | `text` | `text`, `json` |  |
+| `--format` |  | `text` | `text`, `json`, `csv`, `markdown` |  |
 | `--group` |  |  |  | *(v0.4.0)* list only the runs of this repeat group. |
 | `--wide` |  |  |  | v0.5.0: print the full one-line-per-run format (all scores, origin, dataset). |
 
