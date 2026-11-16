@@ -44,6 +44,7 @@ nav:
       - Troubleshooting: troubleshooting.md
   - Comparing models:
       - Paired comparison: model_comparison.md
+      - Fine-tuning comparison cookbook: cookbook_finetune.md
       - Reading a comparison report: reading_a_report.md
       - Ranking and planning: ranking_and_planning.md
       - Repeated runs: repeated_runs.md
