@@ -1409,7 +1409,7 @@ def _truncate(text: str, width: int) -> str:
 
 
 _RUNS_COMPACT_HEADER = ("RUN ID", "STATUS", "MODEL", "ITEMS", "SCORE", "GROUP")
-_RUNS_WIDE_HEADER = ("RUN ID", "STATUS", "ORIGIN", "MODEL", "DATASET", "ITEMS", "SCORES", "GROUP")
+_RUNS_WIDE_FIELDS = ("RUN ID", "STATUS", "ORIGIN", "MODEL", "DATASET", "ITEMS")
 
 
 def _run_list_row(run: Any, *, wide: bool = False) -> tuple[str, ...]:
@@ -1449,18 +1449,31 @@ def _compact_runs_table(runs: list[Any]) -> list[str]:
     return lines
 
 
+def _wide_run_export_row(run: Any, metrics: Sequence[str]) -> tuple[str | float, ...]:
+    *fields, _, group = _run_list_row(run, wide=True)
+    scores = run.aggregate_scores or {}
+    return (*fields, *(scores.get(metric, "") for metric in metrics), group)
+
+
 def _print_runs_export(runs: list[Any], *, output_format: str, wide: bool) -> None:
-    header = _RUNS_WIDE_HEADER if wide else _RUNS_COMPACT_HEADER
-    rows = (_run_list_row(run, wide=wide) for run in runs)
+    if wide:
+        metrics = sorted({metric for run in runs for metric in (run.aggregate_scores or {})})
+        header = (*_RUNS_WIDE_FIELDS, *metrics, "GROUP")
+        rows = (_wide_run_export_row(run, metrics) for run in runs)
+    else:
+        header = _RUNS_COMPACT_HEADER
+        rows = (_run_list_row(run) for run in runs)
+
     if output_format == "csv":
         from openbench.security import csv_safe
 
-        writer = csv.writer(sys.stdout, lineterminator="\n", quoting=csv.QUOTE_ALL)
-        writer.writerow(header)
+        quoting = csv.QUOTE_NONNUMERIC if wide else csv.QUOTE_ALL
+        writer = csv.writer(sys.stdout, lineterminator="\n", quoting=quoting)
+        writer.writerow([csv_safe(cell) for cell in header])
         writer.writerows(tuple("-" if cell == "-" else csv_safe(cell) for cell in row) for row in rows)
         return
 
-    print("| " + " | ".join(header) + " |")
+    print("| " + " | ".join(escape_markdown_cell(cell) for cell in header) + " |")
     print("| " + " | ".join("---" for _ in header) + " |")
     for row in rows:
         print("| " + " | ".join(escape_markdown_cell(cell) for cell in row) + " |")

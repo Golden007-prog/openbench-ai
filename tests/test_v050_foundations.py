@@ -534,15 +534,60 @@ def test_runs_list_exports_mock_run(tmp_path, capsys):
                        f'{record["completed_items"]}/{record["total_items"]}']
     assert row[5] == "-"
 
-    assert main([*args, "--format", "markdown", "--wide"]) == 0
+    assert main([*args, "--format", "markdown"]) == 0
     header, separator, row = capsys.readouterr().out.splitlines()
-    assert header == "| RUN ID | STATUS | ORIGIN | MODEL | DATASET | ITEMS | SCORES | GROUP |"
-    assert separator == "| --- | --- | --- | --- | --- | --- | --- | --- |"
+    assert header == "| RUN ID | STATUS | MODEL | ITEMS | SCORE | GROUP |"
+    assert separator == "| --- | --- | --- | --- | --- | --- |"
     assert record["run_id"] in row
-    assert "provider_executed" in row
-    assert f"mock:{model} [MOCK]" in row.replace(r"\|", "|")
+    assert f"mock:{model} [mock]" in row.replace(r"\|", "|")
     assert r"and a \| pipe" in row
-    assert str(record["aggregate_scores"]) in row
+
+
+def test_runs_list_wide_exports_one_column_per_metric(tmp_path, capsys):
+    common = ["--experiments-dir", str(tmp_path / "exp")]
+    for model, metrics in (
+        ("uses-accuracy", ["exact_match", "accuracy"]),
+        ("uses-keywords", ["keyword_coverage", "exact_match"]),
+    ):
+        assert main([
+            "run", "--dataset", str(SAMPLE), "--provider", "mock", "--model", model,
+            "--metrics", *metrics, "--no-cache", *common,
+        ]) == 0
+    capsys.readouterr()
+
+    wide = ["runs", "list", *common, "--wide"]
+    assert main([*wide, "--format", "json"]) == 0
+    records = json.loads(capsys.readouterr().out)
+    by_id = {record["run_id"]: record for record in records}
+    assert len(by_id) == 2
+
+    columns = ["accuracy", "exact_match", "keyword_coverage"]
+    expected_header = ["RUN ID", "STATUS", "ORIGIN", "MODEL", "DATASET", "ITEMS", *columns, "GROUP"]
+
+    assert main([*wide, "--format", "csv"]) == 0
+    # QUOTE_NONNUMERIC reads unquoted values as floats, so numbers stored
+    # as quoted text would fail the value checks.
+    header, *rows = csv.reader(io.StringIO(capsys.readouterr().out), quoting=csv.QUOTE_NONNUMERIC)
+    assert header == expected_header
+    assert len(rows) == 2
+    for row in rows:
+        scores = by_id[row[0]]["aggregate_scores"]
+        assert len(row) == len(expected_header)
+        assert row[2] == "provider_executed"
+        assert row[6:-1] == [scores.get(metric, "") for metric in columns]
+        assert row[-1] == "-"
+
+    assert main([*wide, "--format", "markdown"]) == 0
+    header, separator, *rows = capsys.readouterr().out.splitlines()
+    assert header == "| " + " | ".join(expected_header) + " |"
+    assert separator == "| " + " | ".join(["---"] * len(expected_header)) + " |"
+    assert len(rows) == 2
+    for row in rows:
+        cells = [cell.strip() for cell in row[1:-1].split("|")]
+        scores = by_id[cells[0]]["aggregate_scores"]
+        assert len(cells) == len(expected_header)
+        assert cells[6:-1] == [str(scores.get(metric, "")) for metric in columns]
+        assert cells[-1] == "-"
 
 
 @pytest.mark.parametrize("fmt, expected", [
