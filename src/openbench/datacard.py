@@ -101,7 +101,7 @@ def _mix(counts: dict[str, int]) -> str:
 
 def render_card(card: dict[str, Any], fmt_name: str = "markdown") -> str:
     from openbench.reporting import escape_markdown_cell
-    from openbench.reporting_v040 import to_json
+    from openbench.reporting_v040 import report_doc_markdown, to_json
 
     if fmt_name == "json":
         return to_json(card)
@@ -139,4 +139,5 @@ def render_card(card: dict[str, Any], fmt_name: str = "markdown") -> str:
         lines += [f"- `{f['check_id']}` ({f['severity']}): {escape_markdown_cell(f['message'])}" for f in q["top_findings"]] + [""]
     for section in card["manual"].values():
         lines += [f"## {section['title']}", "", f"**{section['text']}**", ""]
+    lines += ["---", "", report_doc_markdown("dataset_card"), ""]
     return "\n".join(lines)
