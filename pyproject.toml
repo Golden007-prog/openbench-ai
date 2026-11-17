@@ -32,6 +32,8 @@ dependencies = []
 Homepage = "https://github.com/lakshaychhaba0001-sys/openbench-ai"
 Repository = "https://github.com/lakshaychhaba0001-sys/openbench-ai.git"
 Issues = "https://github.com/lakshaychhaba0001-sys/openbench-ai/issues"
+Documentation = "https://lakshaychhaba0001-sys.github.io/openbench-ai/"
+Changelog = "https://github.com/lakshaychhaba0001-sys/openbench-ai/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
