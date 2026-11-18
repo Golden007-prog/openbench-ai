@@ -99,16 +99,74 @@ def _mix(counts: dict[str, int]) -> str:
     return ", ".join(f"{k} {v} ({100 * v / total:.0f}%)" for k, v in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
 
 
+def _facts(g: dict[str, Any]) -> list[list[Any]]:
+    def lengths(field: str) -> str:
+        summary = g[field]
+        return f"min {summary['min']}, mean {summary['avg']}, max {summary['max']}"
+
+    rows = [
+        ["Version", g["version"]],
+        ["Records", f"{g['records']} in {g['files']} file(s)"],
+        ["SHA-256 checksum", g["checksum_sha256"]],
+        ["Categories", _mix(g["categories"])],
+        ["Difficulty", _mix(g["difficulties"])],
+        ["Languages", _mix(g["languages"])],
+        ["Prompt length (characters)", lengths("prompt_length_chars")],
+        ["Answer length (characters)", lengths("answer_length_chars")],
+        ["Records with keywords / rationale", f"{g['records_with_keywords']} / {g['records_with_rationale']}"],
+    ]
+    for key, label in (("license", "Licence"), ("source", "Source")):
+        if g.get(key):
+            rows.append([label, f"{g[key]} (all records)"])
+    return rows
+
+
+def _quality_text(q: dict[str, Any]) -> str:
+    return f"{q['errors']} error(s), {q['warnings']} warning(s), {q['info']} info."
+
+
+def _render_html(card: dict[str, Any]) -> str:
+    from openbench.html_report import _page, _table, esc
+
+    g = card["generated"]
+    q = g["quality_checks"]
+    title = f"Dataset card: {g['name']}"
+    parts = [
+        f"<h1>{esc(title)}</h1>",
+        f'<p class="meta">{esc(card["note"])}</p>',
+        "<h2>At a glance</h2>",
+        _table(["Field", "Value"], _facts(g)),
+        "<h2>Quality checks</h2>",
+        f"<p><code>openbench validate-dataset --quality-checks</code>: {esc(_quality_text(q))}</p>",
+    ]
+    if q["top_findings"]:
+        parts.append("<ul>")
+        for f in q["top_findings"]:
+            parts.append(f"<li><code>{esc(f['check_id'])}</code> ({esc(f['severity'])}): {esc(f['message'])}</li>")
+        parts.append("</ul>")
+    for section in card["manual"].values():
+        parts.append(f'<h2>{esc(section["title"])}</h2><p class="banner">{esc(section["text"])}</p>')
+    return _page(title, "".join(parts))
+
+
 def render_card(card: dict[str, Any], fmt_name: str = "markdown") -> str:
     from openbench.reporting import escape_markdown_cell
     from openbench.reporting_v040 import to_json
 
     if fmt_name == "json":
         return to_json(card)
+    if fmt_name == "html":
+        return _render_html(card)
     if fmt_name != "markdown":
-        raise ValueError("format must be 'markdown' or 'json'")
+        raise ValueError("format must be 'markdown', 'json', or 'html'")
     g = card["generated"]
     q = g["quality_checks"]
+    rows = []
+    for label, value in _facts(g):
+        text = escape_markdown_cell(value)
+        if label == "SHA-256 checksum":
+            text = f"`{text}`"
+        rows.append(f"| {label} | {text} |")
     lines = [
         f"# Dataset card: {escape_markdown_cell(g['name'])}",
         "",
@@ -118,21 +176,11 @@ def render_card(card: dict[str, Any], fmt_name: str = "markdown") -> str:
         "",
         "| Field | Value |",
         "|---|---|",
-        f"| Version | {escape_markdown_cell(g['version'])} |",
-        f"| Records | {g['records']} in {g['files']} file(s) |",
-        f"| SHA-256 checksum | `{g['checksum_sha256']}` |",
-        f"| Categories | {escape_markdown_cell(_mix(g['categories']))} |",
-        f"| Difficulty | {escape_markdown_cell(_mix(g['difficulties']))} |",
-        f"| Languages | {escape_markdown_cell(_mix(g['languages']))} |",
-        f"| Prompt length (characters) | min {g['prompt_length_chars']['min']}, mean {g['prompt_length_chars']['avg']}, max {g['prompt_length_chars']['max']} |",
-        f"| Answer length (characters) | min {g['answer_length_chars']['min']}, mean {g['answer_length_chars']['avg']}, max {g['answer_length_chars']['max']} |",
-        f"| Records with keywords / rationale | {g['records_with_keywords']} / {g['records_with_rationale']} |",
-        *([f"| Licence | {escape_markdown_cell(g['license'])} (all records) |"] if g.get("license") else []),
-        *([f"| Source | {escape_markdown_cell(g['source'])} (all records) |"] if g.get("source") else []),
+        *rows,
         "",
         "## Quality checks",
         "",
-        f"`openbench validate-dataset --quality-checks`: {q['errors']} error(s), {q['warnings']} warning(s), {q['info']} info.",
+        f"`openbench validate-dataset --quality-checks`: {_quality_text(q)}",
         "",
     ]
     if q["top_findings"]:

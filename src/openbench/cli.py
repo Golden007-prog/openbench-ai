@@ -605,7 +605,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="v0.5.0: generate a dataset card (facts computed from the data, author sections left as TODO).",
     )
     card_parser.add_argument("dataset_path", type=str)
-    card_parser.add_argument("--format", choices=["markdown", "json"], default="markdown")
+    card_parser.add_argument("--format", choices=["markdown", "json", "html"], default="markdown")
     card_parser.add_argument("--output", type=str, default=None)
 
     serve_parser = subparsers.add_parser(

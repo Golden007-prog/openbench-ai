@@ -58,7 +58,8 @@ The card fills in what OpenBench can compute (version, record count, checksum, c
 difficulty and language mix, prompt and answer lengths, quality-check results). The parts only
 the author knows (purpose, source and licence, how answers were checked, known limitations) are
 left as visible **TODO (author)** placeholders; OpenBench never invents them. The card has no
-timestamps, so the same data always gives the same card. `--format json` is also available.
+timestamps, so the same data always gives the same card. Use `--format json` for machine-readable
+output or `--format html --output card.html` for a standalone page with highlighted author notes.
 
 ## Semantic near-duplicates
 

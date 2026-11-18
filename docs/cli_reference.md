@@ -308,7 +308,7 @@ v0.5.0: generate a dataset card (facts computed from the data, author sections l
 | Argument | Required | Default | Choices | Help |
 | :--- | :---: | :--- | :--- | :--- |
 | `dataset_path` | yes |  |  |  |
-| `--format` |  | `markdown` | `markdown`, `json` |  |
+| `--format` |  | `markdown` | `markdown`, `json`, `html` |  |
 | `--output` |  |  |  |  |
 
 ## `openbench serve`

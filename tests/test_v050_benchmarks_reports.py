@@ -166,6 +166,23 @@ def test_dataset_card_generated_and_placeholders(tmp_path, capsys):
     assert main(["dataset-card", str(ds), "--format", "json"]) == 0
     assert json.loads(capsys.readouterr().out)["kind"] == "dataset_card"
 
+
+def test_dataset_card_html_is_deterministic_and_escapes_provenance(tmp_path):
+    ds = tmp_path / "formatted.jsonl"
+    ds.write_text(json.dumps({
+        "id": "sample", "category": "example", "prompt": "<b>Which fruit is yellow?</b>",
+        "expected_answer": "lemon", "metadata": {"license": "CC0-1.0", "source": "<b>Example & source</b>"},
+    }) + "\n", encoding="utf-8")
+    output = tmp_path / "card.html"
+    assert main(["dataset-card", str(ds), "--format", "html", "--output", str(output)]) == 0
+    document = output.read_text(encoding="utf-8")
+    assert document == render_card(build_card(ds), "html")
+    assert "<h2>At a glance</h2>" in document and "<h2>Quality checks</h2>" in document
+    assert "<td>Licence</td><td>CC0-1.0 (all records)</td>" in document
+    assert "&lt;b&gt;Example &amp; source&lt;/b&gt;" in document
+    assert document.count('<p class="banner">TODO (author):') == 4
+    assert "<b>" not in document and "<script" not in document and "<link" not in document
+
 def test_dataset_card_licence_and_source_shared_mixed_missing(tmp_path, capsys):
     src = tmp_path / "qa.csv"
     src.write_text("question,answer\nWho wrote Hamlet?,Shakespeare\nCapital of Italy?,Rome\n", encoding="utf-8")
